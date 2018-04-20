@@ -1,0 +1,87 @@
+buildscript {
+    ext {
+        springBootVersion = '1.5.10.RELEASE'
+    }
+    repositories {
+        maven {
+            name "cloudolp"
+            url "http://nexus-server/repository/cloudolp"
+        }
+    }
+    dependencies {
+        classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
+        classpath 'org.springframework:springloaded:1.2.8.RELEASE'
+        classpath 'io.spring.gradle:dependency-management-plugin:1.0.3.RELEASE'
+        classpath 'com.bmuschko:gradle-docker-plugin:3.0.11'
+    }
+}
+ext {
+    wechat_pay_version = '2.8.0'
+    wechat_common_version = '2.8.0'
+    wechat_util_version = '1.1'
+    docker_registry = 'docker-registry.cloudolp.com:5000'
+}
+
+apply plugin: 'java'
+apply plugin: 'eclipse-wtp'
+apply plugin: 'org.springframework.boot'
+apply plugin: 'war'
+apply plugin: 'application'
+apply plugin: 'com.bmuschko.docker-java-application'
+
+group = 'com.cloudolp.peony.server'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = 1.8
+
+task pathingJar(type: Jar) {
+    dependsOn configurations.runtime
+    appendix = 'pathing'
+
+    doFirst {
+        manifest {
+            attributes "Class-Path": configurations.runtime.files.collect {
+                it.toURI().toString().replaceFirst('/file:/+/', '/')
+            }.join(' ')
+        }
+    }
+}
+
+bootRun {
+    dependsOn pathingJar
+    doFirst {
+        classpath = files(sourceSets.main.output.files, pathingJar.archivePath)
+    }
+}
+
+repositories {
+    maven {
+        name "cloudolp"
+        url "http://nexus-server/repository/cloudolp"
+    }
+}
+
+docker {
+    javaApplication {
+        maintainer = 'Franklin Zhang "zhangyixuan@cloudolp.com"'
+        tag = "${docker_registry}/${project.name}"
+    }
+}
+
+configurations {
+    providedRuntime
+}
+
+dependencies {
+    compile('org.springframework.boot:spring-boot-starter-data-jpa')
+    compile('org.springframework.boot:spring-boot-starter-web')
+    compile("com.github.binarywang:weixin-java-pay:${wechat_pay_version}")
+    compile("com.github.binarywang:weixin-java-common:${wechat_common_version}")
+    compile("com.github.binarywang:qrcode-utils:${wechat_util_version}")
+    compile("com.alibaba:fastjson:1.2.17")
+    compile("mysql:mysql-connector-java")
+    compile "com.alibaba:druid:1.0.23"
+    compile 'com.querydsl:querydsl-jpa'
+    compile 'com.querydsl:querydsl-apt'
+    providedRuntime('org.springframework.boot:spring-boot-starter-tomcat')
+    testCompile('org.springframework.boot:spring-boot-starter-test')
+}
